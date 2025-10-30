@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Space-War</title>
+  <style>
+    body { 
+      background: black; 
+      margin: 0; 
+      padding: 0; 
+      overflow: hidden; 
+      font-family: Arial, sans-serif; 
+      width: 100vw;
+      height: 100vh;
+    }
+    canvas { 
+      display: block; 
+      width: 100vw;
+      height: 100vh;
+    }
+    #tela-inicio, #tela-gameover { 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      background: rgba(0, 0, 0, 0.8); 
+      color: white; 
+      text-align: center;
+    }
+    #tela-gameover { display: none; }
+    #dificuldade { 
+      position: fixed; 
+      top: 10px; 
+      right: 10px;
+      color: white; 
+      font-size: 14px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 5px;
+      z-index: 1000;
+    }
+    h1 { color: #00ffff; font-size: 36px; margin-bottom: 20px; text-shadow: 0 0 10px #00ffff; }
+    button { 
+      background: #00ffff; 
+      color: black; 
+      border: none; 
+      padding: 15px 30px; 
+      font-size: 18px; 
+      margin: 10px; 
+      cursor: pointer; 
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    button:hover { background: #00cccc; }
+    .info { margin: 10px 0; font-size: 18px; }
+    .destaque { color: #00ffff; font-size: 24px; font-weight: bold; }
+  </style>
+  <script src="animacao.js"></script>
+  <script src="fundo.js"></script>
+  <script src="teclado.js"></script>
+  <script src="tiro.js"></script>
+  <script src="nave.js"></script>
+  <script src="powerup.js"></script> 
+  <script src="inimigo.js"></script>
+</head>
+<body>
+  <!-- REMOVIDOS: width="500" height="500" -->
+  <canvas id="canvas_jogo"></canvas>
+  
+  <div id="tela-inicio">
+    <h1>SPACE-WAR</h1>
+    <div class="info">Use as setas para mover e ESPAÇO para atirar</div>
+    <div class="info">Pressione 'P' para pausar</div>
+    <button id="btn-iniciar">INICIAR JOGO</button>
+  </div>
+  
+  <div id="tela-gameover">
+    <h1>GAME OVER</h1>
+    <div class="info">Você alcançou o nível <span id="nivel-final" class="destaque">1</span></div>
+    <div class="info">Inimigos destruídos: <span id="inimigos-destruidos" class="destaque">0</span></div>
+    <button id="btn-reiniciar">JOGAR NOVAMENTE</button>
+  </div>
+
+  <div id="dificuldade">Nível: 1</div>
+
+  <script>
+    const canvas = document.getElementById("canvas_jogo");
+    const context = canvas.getContext("2d");
+    const elementoDificuldade = document.getElementById("dificuldade");
+    const telaInicio = document.getElementById("tela-inicio");
+    const telaGameOver = document.getElementById("tela-gameover");
+    const btnIniciar = document.getElementById("btn-iniciar");
+    const btnReiniciar = document.getElementById("btn-reiniciar");
+    const nivelFinal = document.getElementById("nivel-final");
+    const inimigosDestruidos = document.getElementById("inimigos-destruidos");
+
+    // <-- NOVO: Configuração de tela cheia
+    function configurarTelaCheia() {
+      canvas.width = 500;  // Resolução INTERNA (jogo)
+      canvas.height = 500;
+      
+      // Escala para preencher a tela
+      const escalaX = window.innerWidth / canvas.width;
+      const escalaY = window.innerHeight / canvas.height;
+      const escala = Math.min(escalaX, escalaY);
+      
+      canvas.style.width = (canvas.width * escala) + 'px';
+      canvas.style.height = (canvas.height * escala) + 'px';
+    }
+
+    // Configurar tela quando a janela mudar de tamanho
+    window.addEventListener('resize', configurarTelaCheia);
+    configurarTelaCheia();
+
+    // Carregar imagens 
+    const imgEspaco = new Image(); imgEspaco.src = "fundo-azul.jpg";
+    const imgEstrelas = new Image(); imgEstrelas.src = "img/fundo-estrelas.png";
+    const imgNuvens = new Image(); imgNuvens.src = "img/fundo-nuvens.png";
+    const imgNave = new Image(); imgNave.src = "img/nave-nova.png";
+    const imgInimigo = new Image(); imgInimigo.src = "img/nave-inimiga.png";
+    const imgExplosao = new Image(); imgExplosao.src = "img/explosao-novo.png";
+    const imgVidas = new Image(); imgVidas.src = "img/vidas.png";
+    const imgVidaExtra = new Image(); imgVidaExtra.src = "img/vida-extra.png";
+    const imgPegadinha = new Image(); imgPegadinha.src = "img/pegadinha.png";
+
+    // Música de fundo
+    const musicaFundo = new Audio("som-de-fundo.mp3");
+    musicaFundo.loop = true;
+    
+    // Música do menu
+    const musicaMenu = new Audio("som-menu.mp3"); 
+    musicaMenu.loop = true;
+    musicaMenu.volume = 0.6; 
+
+    // SONS DE EFEITO
+    const somColisao = new Audio("som-colisao-nave.mp3");
+    const somVidaExtra = new Audio("som-vida-extra.mp3");
+    const somPegadinha = new Audio("som-pegadinha.mp3");
+    const somGameOver = new Audio("som-gameover.mp3");
+    const somAbate = new Audio("som-abate.mp3");
+
+    // Variáveis do jogo
+    let animacao, teclado, nave;
+    let nivel = 1;
+    let tempoJogo = 0;
+    let intervaloInimigos = 2000;
+    let contadorInimigosDestruidos = 0;
+    let intervaloInimigosRef;
+    let intervaloDificuldadeRef; 
+    let intervaloPowerUpRef; 
+    let timerEscolhaRef = null; 
+
+    let carregadas = 0;
+    const total = 9;
+    
+    [imgEspaco, imgEstrelas, imgNuvens, imgNave, imgInimigo, imgExplosao, imgVidas, imgVidaExtra, imgPegadinha].forEach(img =>
+      img.onload = () => { 
+          if (++carregadas === total) init(); 
+      }
+    );
+
+    function ativarMusicaMenu() {
+        musicaFundo.pause(); 
+        if (musicaMenu.paused) {
+            musicaMenu.currentTime = 0;
+            musicaMenu.play().catch(e => console.log("Áudio do Menu não iniciou, aguardando interação.", e));
+        }
+    }
+
+    function init() {
+      btnIniciar.addEventListener('click', iniciarJogo);
+      btnReiniciar.addEventListener('click', reiniciarJogo);
+      ativarMusicaMenu(); 
+      telaInicio.style.display = 'flex';
+    }
+
+    function iniciarJogo() {
+      musicaMenu.pause();
+      musicaMenu.currentTime = 0;
+      
+      somGameOver.pause();
+      somGameOver.currentTime = 0;
+      
+      telaInicio.style.display = 'none';
+      telaGameOver.style.display = 'none';
+      
+      nivel = 1;
+      tempoJogo = 0;
+      intervaloInimigos = 2000;
+      contadorInimigosDestruidos = 0;
+      elementoDificuldade.textContent = 'Nível: 1';
+      
+      teclado = new Teclado(document);
+      animacao = new Animacao(context);
+      
+      const fundoEspaco = new Fundo(context,imgEspaco); fundoEspaco.velocidade=3;
+      const fundoEstrelas = new Fundo(context,imgEstrelas); fundoEstrelas.velocidade=7;
+      const fundoNuvens = new Fundo(context,imgNuvens); fundoNuvens.velocidade=10;
+      animacao.novoSprite(fundoEspaco);
+      animacao.novoSprite(fundoEstrelas);
+      animacao.novoSprite(fundoNuvens);
+
+      // PASSA O SOM DE COLISÃO PARA A NAVE
+      nave = new Nave(context, teclado, imgNave, somColisao);
+      nave.atualizarDimensoes();
+      nave.x = canvas.width/2 - nave.largura/2;
+      nave.y = canvas.height - nave.altura -10;
+      nave.velocidade = 5;
+      nave.vidas = 3;
+      nave.animacao = animacao;
+      
+      nave.setImagemVidas(imgVidas);
+      
+      animacao.novoSprite(nave);
+      teclado.disparou(ESPACO,()=> nave.atirar());
+      
+      teclado.disparou(P_KEY, togglePause);
+
+      intervaloDificuldadeRef = setInterval(() => { 
+        if (!animacao.ligado) {
+          clearInterval(intervaloDificuldadeRef);
+          return;
+        }
+        if (animacao.pausado) {
+            return;
+        }
+        
+        tempoJogo++;
+        
+        if (tempoJogo % 15 === 0) {
+          nivel++;
+          elementoDificuldade.textContent = 'Nível: ' + nivel;
+          intervaloInimigos = Math.max(500, 2000 - (nivel * 150));
+          
+          clearInterval(intervaloInimigosRef);
+          intervaloInimigosRef = setInterval(criarInimigo, intervaloInimigos);
+        }
+      }, 1000);
+
+      intervaloInimigosRef = setInterval(criarInimigo, intervaloInimigos);
+      
+      intervaloPowerUpRef = setInterval(criarPowerUp, 12000);
+
+      animacao.ligar();
+      verificarGameOver(); 
+
+      musicaFundo.pause(); 
+      musicaFundo.currentTime = 0;
+      musicaFundo.play();
+    }
+
+    function criarInimigo() {
+      if (!animacao || !animacao.ligado || animacao.pausado) return;
+      
+      // PASSA O SOM DE ABATE PARA O INIMIGO
+      const inimigo = new Inimigo(context, imgInimigo, imgExplosao, nave, somAbate);
+      
+      inimigo.x = Math.random()*(canvas.width - inimigo.largura);
+      inimigo.y = -inimigo.altura;
+      
+      const velocidadeBase = 2 + (nivel * 0.3);
+      inimigo.velocidade = velocidadeBase + Math.random() * 2;
+      
+      inimigo.animacao = animacao;
+      inimigo.onDestruir = function() {
+        contadorInimigosDestruidos++;
+      };
+      
+      animacao.novoSprite(inimigo);
+    }
+    
+    function criarPowerUp() {
+      if (!animacao || !animacao.ligado || animacao.pausado) return;
+      
+      // PASSA OS SONS PARA O POWERUP
+      const powerUp = new PowerUp(context, imgVidaExtra, nave, 'vida', somVidaExtra, somPegadinha);
+      powerUp.animacao = animacao;
+      
+      powerUp.onColetarVida = function() {
+         if (timerEscolhaRef) clearTimeout(timerEscolhaRef); 
+         timerEscolhaRef = setTimeout(criarEscolhaArriscada, 5000); 
+      };
+      
+      animacao.novoSprite(powerUp);
+    }
+    
+    function criarEscolhaArriscada() {
+      if (!animacao || !animacao.ligado || animacao.pausado) return;
+      
+      const larguraItem = 45;
+      const espacamento = 20;
+      const larguraTotal = (larguraItem * 2) + espacamento;
+      
+      let xBase = Math.random() * (canvas.width - larguraTotal);
+      
+      let img1, tipo1, img2, tipo2;
+      
+      if (Math.random() < 0.5) {
+         img1 = imgVidaExtra; tipo1 = 'vida';
+         img2 = imgPegadinha; tipo2 = 'pegadinha';
+      } else {
+         img1 = imgPegadinha; tipo1 = 'pegadinha';
+         img2 = imgVidaExtra; tipo2 = 'vida';
+      }
+
+      // PASSA OS SONS PARA OS POWERUPS
+      const p1 = new PowerUp(context, img1, nave, tipo1, somVidaExtra, somPegadinha);
+      p1.x = xBase;
+      p1.y = -p1.altura;
+      p1.animacao = animacao;
+      if (tipo1 === 'vida') p1.onColetarVida = function() {
+          timerEscolhaRef = setTimeout(criarEscolhaArriscada, 5000);
+      };
+      animacao.novoSprite(p1);
+
+      const p2 = new PowerUp(context, img2, nave, tipo2, somVidaExtra, somPegadinha);
+      p2.x = xBase + larguraItem + espacamento;
+      p2.y = -p2.altura;
+      p2.animacao = animacao;
+      if (tipo2 === 'vida') p2.onColetarVida = function() {
+          timerEscolhaRef = setTimeout(criarEscolhaArriscada, 5000);
+      };
+      animacao.novoSprite(p2);
+      
+      timerEscolhaRef = null; 
+    }
+    
+    function togglePause() {
+        if (!animacao || !animacao.ligado) return;
+        
+        animacao.pausado = !animacao.pausado;
+        
+        if (animacao.pausado) {
+            musicaFundo.pause();
+        } else {
+            musicaFundo.play();
+        }
+    }
+    
+    function verificarGameOver() {
+        if (!animacao || !animacao.ligado) return;
+
+        if (!animacao.pausado) {
+            if (nave.vidas <= 0) {
+                gameOver(); 
+                return; 
+            }
+        }
+        
+        requestAnimationFrame(verificarGameOver);
+    }
+
+    function gameOver() {
+      musicaFundo.pause();
+      musicaFundo.currentTime = 0;
+      
+      // TOCA SOM DE GAME OVER
+      somGameOver.currentTime = 0;
+      somGameOver.play();
+      
+      animacao.desligar();
+      
+      clearInterval(intervaloDificuldadeRef);
+      clearInterval(intervaloInimigosRef);
+      clearInterval(intervaloPowerUpRef); 
+      if (timerEscolhaRef) clearTimeout(timerEscolhaRef); 
+      
+      nivelFinal.textContent = nivel;
+      inimigosDestruidos.textContent = contadorInimigosDestruidos;
+      
+      setTimeout(() => {
+        telaGameOver.style.display = 'flex';
+        ativarMusicaMenu(); 
+      }, 1000);
+    }
+
+    function reiniciarJogo() {
+      if (animacao && animacao.ligado) {
+        animacao.desligar();
+      }
+      
+      if (teclado) {
+         teclado.desligar();
+      }
+      
+      somGameOver.pause();
+      somGameOver.currentTime = 0;
+      
+      clearInterval(intervaloDificuldadeRef);
+      clearInterval(intervaloInimigosRef);
+      clearInterval(intervaloPowerUpRef);
+      if (timerEscolhaRef) clearTimeout(timerEscolhaRef); 
+      
+      if (animacao) {
+        animacao.sprites = [];
+      }
+      
+      iniciarJogo();
+    }
+
+    function ativarMusica() {
+      if (animacao && animacao.pausado) return; 
+
+      if (musicaMenu.paused && (telaInicio.style.display !== 'none' || telaGameOver.style.display !== 'none')) {
+        ativarMusicaMenu();
+      }
+      else if (musicaFundo.paused && animacao && animacao.ligado) {
+        musicaFundo.play();
+      }
+    }
+    document.addEventListener("click", ativarMusica);
+  </script>
+</body>
+</html>

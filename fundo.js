@@ -9,20 +9,21 @@ Fundo.prototype = {
       // Atualizar a posição de emenda
       this.posicaoEmenda += this.velocidade;
       
-      // Emenda passou da posição
-      if (this.posicaoEmenda > this.imagem.height)
+      if (this.posicaoEmenda > this.context.canvas.height) {
          this.posicaoEmenda = 0;
+      }
    },
+   
    desenhar: function() {
-      var img = this.imagem;  // Para facilitar a escrita :D
+      var img = this.imagem;
+      var canvas = this.context.canvas;
       
-      // Primeira cópia
-      var posicaoY = this.posicaoEmenda - img.height;
-      this.context.drawImage(img, 0, posicaoY, img.width, img.height);
+      var posicaoY = this.posicaoEmenda - canvas.height;
       
-      // Segunda cópia
+      this.context.drawImage(img, 0, posicaoY, canvas.width, canvas.height); 
+      
       posicaoY = this.posicaoEmenda;
-      this.context.drawImage(img, 0, posicaoY, img.width, img.height);     
+      
+      this.context.drawImage(img, 0, posicaoY, canvas.width, canvas.height);
    }
 }
-

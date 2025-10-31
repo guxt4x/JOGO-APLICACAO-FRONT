@@ -101,26 +101,17 @@
 
     // <-- NOVO: Configuração de tela cheia
     function configurarTelaCheia() {
-      canvas.width = 500;  // Resolução INTERNA (jogo)
-      canvas.height = 500;
-      
-      // Escala para preencher a tela
-      const escalaX = window.innerWidth / canvas.width;
-      const escalaY = window.innerHeight / canvas.height;
-      const escala = Math.min(escalaX, escalaY);
-      
-      canvas.style.width = (canvas.width * escala) + 'px';
-      canvas.style.height = (canvas.height * escala) + 'px';
+      // Faz a resolução INTERNA do canvas ser igual ao tamanho da janela
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
 
     // Configurar tela quando a janela mudar de tamanho
     window.addEventListener('resize', configurarTelaCheia);
     configurarTelaCheia();
 
-    // Carregar imagens 
-    const imgEspaco = new Image(); imgEspaco.src = "fundo-azul.jpg";
-    const imgEstrelas = new Image(); imgEstrelas.src = "img/fundo-estrelas.png";
-    const imgNuvens = new Image(); imgNuvens.src = "img/fundo-nuvens.png";
+    //// Carregar imagens 
+    const imgFundoNovo = new Image(); imgFundoNovo.src = "img/novo-fundo.jpg";
     const imgNave = new Image(); imgNave.src = "img/nave-nova.png";
     const imgInimigo = new Image(); imgInimigo.src = "img/nave-inimiga.png";
     const imgExplosao = new Image(); imgExplosao.src = "img/explosao-novo.png";
@@ -156,11 +147,11 @@
     let timerEscolhaRef = null; 
 
     let carregadas = 0;
-    const total = 9;
+    const total = 7;
     
-    [imgEspaco, imgEstrelas, imgNuvens, imgNave, imgInimigo, imgExplosao, imgVidas, imgVidaExtra, imgPegadinha].forEach(img =>
-      img.onload = () => { 
-          if (++carregadas === total) init(); 
+    [imgFundoNovo, imgNave, imgInimigo, imgExplosao, imgVidas, imgVidaExtra, imgPegadinha].forEach(img =>
+      img.onload = () => {
+          if (++carregadas === total) init();
       }
     );
 
@@ -198,19 +189,16 @@
       teclado = new Teclado(document);
       animacao = new Animacao(context);
       
-      const fundoEspaco = new Fundo(context,imgEspaco); fundoEspaco.velocidade=3;
-      const fundoEstrelas = new Fundo(context,imgEstrelas); fundoEstrelas.velocidade=7;
-      const fundoNuvens = new Fundo(context,imgNuvens); fundoNuvens.velocidade=10;
-      animacao.novoSprite(fundoEspaco);
-      animacao.novoSprite(fundoEstrelas);
-      animacao.novoSprite(fundoNuvens);
+      const fundoNovo = new Fundo(context, imgFundoNovo);
+      fundoNovo.velocidade = 2; // Velocidade mais lenta para o fundo principal
+      animacao.novoSprite(fundoNovo);
 
       // PASSA O SOM DE COLISÃO PARA A NAVE
       nave = new Nave(context, teclado, imgNave, somColisao);
       nave.atualizarDimensoes();
       nave.x = canvas.width/2 - nave.largura/2;
       nave.y = canvas.height - nave.altura -10;
-      nave.velocidade = 5;
+      nave.velocidade = 7;
       nave.vidas = 3;
       nave.animacao = animacao;
       
@@ -243,7 +231,6 @@
       }, 1000);
 
       intervaloInimigosRef = setInterval(criarInimigo, intervaloInimigos);
-      
       intervaloPowerUpRef = setInterval(criarPowerUp, 12000);
 
       animacao.ligar();

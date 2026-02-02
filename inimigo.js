@@ -12,7 +12,6 @@ function Inimigo(context, imagem, imgExplosao, nave, somAbate) {
    this.explodindo = false;
    this.frameExplosao = 0;
    this.nave = nave;
-   // this.onDestruir -> será definido no arquivo HTML
 }
 
 Inimigo.prototype.atualizar = function(){
